@@ -120,7 +120,9 @@ def batch_output(outfile, batch_CHR, batch_SNP, batch_BP, batch_A1, batch_Beta, 
     for i in range(len(batch_CHR)):
         outfile.write(f"{batch_CHR[i]}\t{batch_SNP[i]}\t{batch_BP[i]}\t{batch_A1[i]}\t{batch_Beta[i]:.4f}\t{batch_STAT[i]}\t{batch_P[i]}\n")
 
-def gwas(pheno_pth, vcf_path, outfile):
+def gwas(pheno_pth, vcf_path, outfile, batch_size = -1):
+    
+
     id_phen_dict = get_id_phen(pheno_pth)
     vcf = VCF(vcf_path)
     num_samples = len(vcf.samples)
@@ -130,7 +132,7 @@ def gwas(pheno_pth, vcf_path, outfile):
 
     outfile = init_output(outfile)
 
-    bar = tqdm(vcf_batch_iter(vcf, batch_size=1024))
+    bar = tqdm(vcf_batch_iter(vcf, batch_size=batch_size))
     for batch_CHR, batch_SNP, batch_BP, batch_A1, batch_genotypes in bar:
         X = torch.tensor(batch_genotypes, dtype=torch.float32, device=ACTIVE_DEVICE)
         Xy = torch.sum(X * y, dim=1, keepdim=True)
