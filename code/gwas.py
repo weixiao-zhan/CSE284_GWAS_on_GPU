@@ -1,4 +1,5 @@
 from cyvcf2 import VCF
+import io
 import numpy as np
 import torch
 from scipy.stats import t
@@ -53,62 +54,50 @@ def build_Y(vcf, id_to_phen_dict, centered = True):
 def nonzero_genotype_mask(genotype):
     pass
 
-def vcf_batch_iter(vcf, batch_size=1024):
+def vcf_batch_iter(vcf, batch_size=1024,
+                   max_len_CHR = 2,
+                   max_len_ID = 35,
+                   max_len_A1 = 1):
     """
     Iterates over a VCF file in batches.
+    Filter SNPs that are valid for GWAS
     
     Parameters:
     - vcf: : cyvcf2.VCF object
     - batch_size: Number of variants per batch.
     
     Yields:
-    - (batch_size, # of sample, 3) torch tensor.
+    - CHR, SNP, BP, A1, genotypes
     """
-
-    batch_CHR = []
-    batch_SNP = []
-    batch_BP = []
-    batch_A1 = []
-    batch_genotypes = []
-
+    np_CHR = np.empty(batch_size,dtype=f'<U{max_len_CHR}')
+    np_ID = np.empty(batch_size, dtype=f'<U{max_len_ID}')
+    np_BP = np.zeros(batch_size, dtype=np.uint)
+    np_A1 = np.empty(batch_size, dtype=f'<U{max_len_A1}')
+    np_genotypes_raw = np.empty([batch_size,len(vcf.samples),3],dtype=np.float16)
+    
+    batch_index = 0
     for snp in vcf:
+        np_CHR[batch_index] = snp.CHROM
+        np_ID[batch_index] = snp.ID
+        np_BP[batch_index] = snp.POS
+        np_A1[batch_index] = snp.ALT[0]
+        np_genotypes_raw[batch_index,:,:] = np.array(snp.genotypes, dtype=np.float16)
         
-        batch_CHR.append(snp.CHROM)
-        batch_SNP.append(snp.ID)
-        batch_BP.append(snp.POS)
-        batch_A1.append(snp.ALT[0])
-        
-        batch_genotypes.append(snp.genotypes)
-        if len(batch_genotypes) == batch_size:
-            np_CHR = np.array(batch_CHR)
-            np_SNP = np.array(batch_SNP)
-            np_BP = np.array(batch_BP)
-            np_A1 = np.array(batch_A1)
-            np_genotypes = np.sum(
-                np.array(batch_genotypes, dtype=np.uint8)[:, :, :2], 
-                axis=2)
+        batch_index += 1
+
+        if batch_index == batch_size:
+            np_genotypes = np.sum(np_genotypes_raw[:, :, :2], axis=2)
             np_genotypes = np_genotypes - np.mean(np_genotypes, axis=1, keepdims=True)
             valid_mask = np.any(np_genotypes != 0, axis=1)
-            yield np_CHR[valid_mask], np_SNP[valid_mask], np_BP[valid_mask], np_A1[valid_mask], np_genotypes[valid_mask,:]
-            # Reset batch list after yielding
-            batch_CHR = []
-            batch_SNP = []
-            batch_BP = []
-            batch_A1 = []
-            batch_genotypes = []
+            yield np_CHR[valid_mask], np_ID[valid_mask], np_BP[valid_mask], np_A1[valid_mask], np_genotypes[valid_mask,:]
+            batch_index = 0
     
     # Yield any remaining variants in the last batch (if not empty)
-    if batch_genotypes:
-            np_CHR = np.array(batch_CHR)
-            np_SNP = np.array(batch_SNP)
-            np_BP = np.array(batch_BP)
-            np_A1 = np.array(batch_A1)
-            np_genotypes = np.sum(
-                np.array(batch_genotypes, dtype=np.uint8)[:, :, :2], 
-                axis=2)
-            np_genotypes = np_genotypes - np.mean(np_genotypes, axis=1, keepdims=True)
-            valid_mask = np.all(np_genotypes == 0, axis=1)
-            yield np_CHR[valid_mask], np_SNP[valid_mask], np_BP[valid_mask], np_A1[valid_mask], np_genotypes[valid_mask]
+    if batch_index > 0:
+        np_genotypes = np.sum(np_genotypes_raw[:batch_index, :, :2], axis=2)
+        np_genotypes = np_genotypes - np.mean(np_genotypes, axis=1, keepdims=True)
+        valid_mask = np.any(np_genotypes != 0, axis=1)
+        yield np_CHR[:batch_index][valid_mask], np_ID[:batch_index][valid_mask], np_BP[:batch_index][valid_mask], np_A1[:batch_index][valid_mask], np_genotypes[valid_mask,:]
 
 def init_output(out_path):
     outfile = open(out_path, 'w')
@@ -116,13 +105,19 @@ def init_output(out_path):
     outfile.write(header)
     return outfile
 
+def init_temp_output():
+    outfile = io.StringIO()
+    header = "CHR\tSNP\tBP\tA1\tBETA\tSTAT\tP\n"
+    outfile.write(header)
+    return outfile
+
 def batch_output(outfile, batch_CHR, batch_SNP, batch_BP, batch_A1, batch_Beta, batch_STAT, batch_P):
+    
     for i in range(len(batch_CHR)):
         outfile.write(f"{batch_CHR[i]}\t{batch_SNP[i]}\t{batch_BP[i]}\t{batch_A1[i]}\t{batch_Beta[i]:.4f}\t{batch_STAT[i]}\t{batch_P[i]}\n")
 
-def gwas(pheno_pth, vcf_path, outfile, batch_size = -1):
-    
-
+def gwas(pheno_pth, vcf_path, outfile, 
+         batch_size = 1024, compute_pval = True):
     id_phen_dict = get_id_phen(pheno_pth)
     vcf = VCF(vcf_path)
     num_samples = len(vcf.samples)
@@ -130,7 +125,11 @@ def gwas(pheno_pth, vcf_path, outfile, batch_size = -1):
 
     y = build_Y(vcf, id_phen_dict, centered=True)
 
-    outfile = init_output(outfile)
+
+    if outfile == "":
+        outfile = init_temp_output()
+    else:
+        outfile = init_output(outfile)
 
     bar = tqdm(vcf_batch_iter(vcf, batch_size=batch_size))
     for batch_CHR, batch_SNP, batch_BP, batch_A1, batch_genotypes in bar:
@@ -138,13 +137,15 @@ def gwas(pheno_pth, vcf_path, outfile, batch_size = -1):
         Xy = torch.sum(X * y, dim=1, keepdim=True)
         XX = torch.sum(X * X, dim=1, keepdim=True)
         beta = (Xy / XX)
-        stat = beta / torch.sqrt(torch.var(y -beta*X) / XX)
-
-        beta_cpu = beta.cpu().detach().numpy().squeeze()
-        stat_cpu = stat.cpu().detach().numpy().squeeze()
-        p = 2 * t.sf(np.abs(stat_cpu), df)
+        beta_cpu = beta.cpu().detach().numpy().squeeze(axis=-1)
+        if compute_pval:
+            stat = beta / torch.sqrt(torch.var(y -beta*X, correction=1) / XX) # ToDo: correction term?
+            stat_cpu = stat.cpu().detach().numpy().squeeze(axis=-1)
+            p = 2 * t.sf(np.abs(stat_cpu), df)
+        else:
+            stat_cpu = np.zeros_like(beta_cpu)
+            p = np.zeros_like(beta_cpu)
         batch_output(outfile, batch_CHR, batch_SNP, batch_BP, batch_A1, beta_cpu, stat_cpu, p)
-    
     outfile.close()
 
 if __name__ == "__main__":
