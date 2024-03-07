@@ -3,3 +3,4 @@ data/ps3_gwas.assoc.linear
 data/ps3_gwas.phen
 data/ps3_gwas.vcf.gz
 data/testout
+plink*

@@ -28,9 +28,9 @@ def test_one():
     out_path = "../data/testout"
     gwas.ACTIVE_DEVICE = torch.device("cpu")
     start = time.time()
-    gwas.gwas(pheno_path, vcf_path, out_path, batch_size=16)
+    gwas.gwas(pheno_path, vcf_path, out_path, batch_size=2**16)
     end = time.time()
     print(round(end - start, 4))
 
 if __name__ == "__main__":
-    test_all()
+    test_one()
