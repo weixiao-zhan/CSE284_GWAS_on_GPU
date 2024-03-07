@@ -8,3 +8,9 @@ I will also compare the runtime performance across three different platforms: pl
 
 ### Description of the Dataset: 
 For this project, we will utilize the dataset provided in PS3, specifically ps3_gwas.phen and ps3_gwas.vcf.gz.
+
+# Example Usage
+[code/main.py](code/main.py])
+
+# results
+[report.ipynb](report.ipynb)
