@@ -23,9 +23,9 @@ def test_all():
                 print(f"batch size 2**{batch_size_power}, using {'CPU' if use_cpu else 'CUDA'}, {'computing' if compute_p else 'skipping'} p-value:\n\t{round(end - start, 4)}")
 
 def test_one():
-    pheno_path = '../data/ps3_gwas.phen'
-    vcf_path = "../data/ps3_gwas.vcf.gz"
-    out_path = "../data/testout"
+    pheno_path = '../data/example.phen'
+    vcf_path = "../data/example.vcf"
+    out_path = "../data/out.assoc.linear"
     gwas.ACTIVE_DEVICE = torch.device("cpu")
     start = time.time()
     gwas.gwas(pheno_path, vcf_path, out_path, batch_size=2**16)

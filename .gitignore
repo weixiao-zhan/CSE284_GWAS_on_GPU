@@ -2,5 +2,7 @@ code/__pycache__
 data/ps3_gwas.assoc.linear
 data/ps3_gwas.phen
 data/ps3_gwas.vcf.gz
+data/ps3_gwas.vcf
 data/testout
 plink*
+!plink.assoc.linear

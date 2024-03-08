@@ -6,6 +6,17 @@ from scipy.stats import t
 from tqdm import tqdm
 
 ACTIVE_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+MAX_LEN_CHR = 2
+MAX_LEN_ID = 35
+MAX_LEN_A1 = 1
+
+STR_LEN_CHR = MAX_LEN_CHR + 2
+STR_LEN_ID = MAX_LEN_ID + 1
+STR_LEN_BP = 11
+STR_LEN_A1 = MAX_LEN_A1 + 4
+STR_LEN_BETA = 13
+STR_LEN_STAT = 13
+STR_LEN_P = 13
 
 def get_id_phen(pheno_path):
     """
@@ -54,10 +65,7 @@ def build_Y(vcf, id_to_phen_dict, centered = True):
 def nonzero_genotype_mask(genotype):
     pass
 
-def vcf_batch_iter(vcf, batch_size=1024,
-                   max_len_CHR = 2,
-                   max_len_ID = 35,
-                   max_len_A1 = 1):
+def vcf_batch_iter(vcf, batch_size=1024):
     """
     Iterates over a VCF file in batches.
     Filter SNPs that are valid for GWAS
@@ -69,10 +77,10 @@ def vcf_batch_iter(vcf, batch_size=1024,
     Yields:
     - CHR, SNP, BP, A1, genotypes
     """
-    np_CHR = np.empty(batch_size,dtype=f'<U{max_len_CHR}')
-    np_ID = np.empty(batch_size, dtype=f'<U{max_len_ID}')
+    np_CHR = np.empty(batch_size,dtype=f'<U{MAX_LEN_CHR}')
+    np_ID = np.empty(batch_size, dtype=f'<U{MAX_LEN_ID}')
     np_BP = np.zeros(batch_size, dtype=np.uint)
-    np_A1 = np.empty(batch_size, dtype=f'<U{max_len_A1}')
+    np_A1 = np.empty(batch_size, dtype=f'<U{MAX_LEN_A1}')
     np_genotypes_raw = np.empty([batch_size,len(vcf.samples),3],dtype=np.float16)
     
     batch_index = 0
@@ -99,22 +107,26 @@ def vcf_batch_iter(vcf, batch_size=1024,
         valid_mask = np.any(np_genotypes != 0, axis=1)
         yield np_CHR[:batch_index][valid_mask], np_ID[:batch_index][valid_mask], np_BP[:batch_index][valid_mask], np_A1[:batch_index][valid_mask], np_genotypes[valid_mask,:]
 
+def build_header_str():
+    return f"{'CHR':>{STR_LEN_CHR}}{'SNP':>{STR_LEN_ID}}{'BP':>{STR_LEN_BP}}{'A1':>{STR_LEN_A1}}{'BETA':>{STR_LEN_BETA}}{'STAT':>{STR_LEN_STAT}}{'P':>{STR_LEN_P}}\n"
+
 def init_output(out_path):
     outfile = open(out_path, 'w')
-    header = "CHR\tSNP\tBP\tA1\tBETA\tSTAT\tP\n"
-    outfile.write(header)
+    outfile.write(build_header_str())
     return outfile
 
 def init_temp_output():
     outfile = io.StringIO()
-    header = "CHR\tSNP\tBP\tA1\tBETA\tSTAT\tP\n"
-    outfile.write(header)
+    outfile.write(build_header_str())
     return outfile
 
+def build_line_str(chr, snp, bp, A1, Beta, Stat, P):
+    return f"{chr:>{STR_LEN_CHR}}{snp:>{STR_LEN_ID}}{bp:>{STR_LEN_BP}}{A1:>{STR_LEN_A1}}{Beta:>{STR_LEN_BETA}.4g}{Stat:>{STR_LEN_STAT}.4g}{P:>{STR_LEN_P}.4g}\n"
+
 def batch_output(outfile, batch_CHR, batch_SNP, batch_BP, batch_A1, batch_Beta, batch_STAT, batch_P):
-    
     for i in range(len(batch_CHR)):
-        outfile.write(f"{batch_CHR[i]}\t{batch_SNP[i]}\t{batch_BP[i]}\t{batch_A1[i]}\t{batch_Beta[i]:.4f}\t{batch_STAT[i]}\t{batch_P[i]}\n")
+        outfile.write(build_line_str(batch_CHR[i], batch_SNP[i], batch_BP[i], batch_A1[i], 
+                                     batch_Beta[i], batch_STAT[i], batch_P[i]))
 
 def gwas(pheno_pth, vcf_path, outfile, 
          batch_size = 1024, compute_pval = True):
@@ -139,9 +151,9 @@ def gwas(pheno_pth, vcf_path, outfile,
         beta = (Xy / XX)
         beta_cpu = beta.cpu().detach().numpy().squeeze(axis=-1)
         if compute_pval:
-            stat = beta / torch.sqrt(torch.var(y -beta*X, correction=1) / XX) # ToDo: correction term?
+            stat = beta / torch.sqrt(torch.var(y -beta*X, dim=1, keepdim=True, correction=2) / XX) # ToDo: correction term?
             stat_cpu = stat.cpu().detach().numpy().squeeze(axis=-1)
-            p = 2 * t.sf(np.abs(stat_cpu), df)
+            p = 2 *t.sf(np.abs(stat_cpu), df)
         else:
             stat_cpu = np.zeros_like(beta_cpu)
             p = np.zeros_like(beta_cpu)
