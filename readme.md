@@ -64,5 +64,5 @@ which is not significant enough to counter the higher latency and extra communic
 3. There is no close formula for CDF of t-distribution; so using batch operation to compute p-value is preferred.
 As shown in graph, as batch size increases, the time to compute p-values in my implementation (the difference between dash and dot line) is reduced.
 However, bigger batch size may overwhelm system memory and 
-cause the total computation to be even slower 
+cause the total computation to be slower 
 (e.g. batch size = $2^{10}$ on DataHub). 
