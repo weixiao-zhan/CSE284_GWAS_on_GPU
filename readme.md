@@ -41,6 +41,7 @@ plink --linear \
 # Results
 ### on DataHub
 Since there is no GPU resources on DataHub, only CPU implementation is used. Following graph shows the runtime of three tools.
+
 ![](datahub.png)
 
 ### on Local PC with GPU
