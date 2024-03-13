@@ -23,11 +23,11 @@ cd CSE284_GWAS_on_GPU
 ```
 
 ### install PyTorch dependency
-For CPU version:
+CPU only:
 ```
 pip3 install torch --index-url https://download.pytorch.org/whl/cpu
 ```
-For CUDA supported:
+CUDA supported *(SKIP if just using CPU version)*:
 ```
 conda install pytorch pytorch-cuda=12.1 -c pytorch -c nvidia
 ```
