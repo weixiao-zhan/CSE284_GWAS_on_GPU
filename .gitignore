@@ -6,3 +6,5 @@ data/ps3_gwas.vcf
 data/testout
 plink*
 !plink.assoc.linear
+report/*
+!report/report.tex

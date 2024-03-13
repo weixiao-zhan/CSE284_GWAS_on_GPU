@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from scipy.stats import t
 from tqdm import tqdm
+import time
 
 ACTIVE_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MAX_LEN_CHR = 2
@@ -130,13 +131,14 @@ def batch_output(outfile, batch_CHR, batch_SNP, batch_BP, batch_A1, batch_Beta, 
 
 def gwas(pheno_pth, vcf_path, outfile, 
          batch_size = 1024, compute_pval = True):
+    timer_start = time.time()
+
     id_phen_dict = get_id_phen(pheno_pth)
     vcf = VCF(vcf_path)
     num_samples = len(vcf.samples)
     df = num_samples - 2
 
     y = build_Y(vcf, id_phen_dict, centered=True)
-
 
     if outfile == "":
         outfile = init_temp_output()
@@ -159,6 +161,9 @@ def gwas(pheno_pth, vcf_path, outfile,
             p = np.zeros_like(beta_cpu)
         batch_output(outfile, batch_CHR, batch_SNP, batch_BP, batch_A1, beta_cpu, stat_cpu, p)
     outfile.close()
+
+    timer_end = time.time()
+    print(f"GWAS finished running in {round(timer_end - timer_start, 4)}s.")
 
 if __name__ == "__main__":
     pass

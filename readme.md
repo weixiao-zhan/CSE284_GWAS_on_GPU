@@ -15,7 +15,12 @@ I will also compare the runtime performance across three different tools:
 The performance is evaluated on the dataset provided in PS3, specifically `ps3_gwas.phen` and `ps3_gwas.vcf.gz`.
 Meanwhile, [`data/example.phen`](data/example.phen) and [`data/example.vcf`](data/example.vcf) are extracted from the PS3 data set for demonstration.
 
-# Usage
+# Get started
+### clone this repo
+```
+git clone https://github.com/weixiao-zhan/CSE284_GWAS_on_GPU.git --depth=1
+cd CSE284_GWAS_on_GPU
+```
 
 ### install PyTorch dependency
 For CPU version:
