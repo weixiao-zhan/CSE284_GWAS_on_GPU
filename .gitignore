@@ -8,3 +8,5 @@ plink*
 !plink.assoc.linear
 report/*
 !report/report.tex
+!report/references.bib
+!report/report.pdf

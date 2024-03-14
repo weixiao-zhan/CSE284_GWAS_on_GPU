@@ -43,31 +43,5 @@ plink --linear \
 
 ```
 
-# Results
-### on DataHub
-Since there is no GPU resources on DataHub, only CPU implementation is used. Following graph shows the runtime of three tools.
-
-![](datahub.png)
-
-### on Local PC with GPU
-![](local_GPU.png)
-![](local_CPU.png)
-
-#  Conclusion
-1. The performance of `plink 1.9` varies greatly on different platforms. 
-`plink 1.9` used some Intel specific acceleration library, 
-which are not supported on DataHub's AMD chips. [^1]
-
-[^1]: `pink 2.0`, currently still under development, promise to have versions specificity compiled and built for Intel and AMD, 
-which should help speed up calculation on DataHub machines in the future.
-
-2. The performance difference between my CPU and GPU implementation is negligible on my Local PC.
-The GPU has better throughput, but higher latency and extra communication cost. 
-In GWAS workload, only 3 matrix operation are loaded to GPU, 
-which is not significant enough to counter the higher latency and extra communication cost.
-
-3. There is no close formula for CDF of t-distribution; so using batch operation to compute p-value is preferred.
-As shown in graph, as batch size increases, the time to compute p-values in my implementation (the difference between dash and dot line) is reduced.
-However, bigger batch size may overwhelm system memory and 
-cause the total computation to be slower 
-(e.g. batch size = $2^{10}$ on DataHub). 
+# Report
+[report.pdf](report.pdf)

@@ -1,17 +1,14 @@
 \documentclass{article}
 
-% Language setting
-% Replace `english' with e.g. `spanish' to change the document language
-\usepackage[english]{babel}
-
 % Set page size and margins
-% Replace `letterpaper' with`a4paper' for UK/EU standard size
-\usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+\usepackage[letterpaper,top=1in,bottom=1in,left=1in,right=1in,marginparwidth=1.75cm]{geometry}
 
 % Useful packages
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{subcaption}
+\usepackage{natbib}
 
 \title{Accelerate GWAS through Parallel}
 \author{Weixiao Zhan}
@@ -23,36 +20,37 @@
 
 The motivation of the project is to address the inefficiencies,
 specifically the time-latency,
-observed in the computing Genome-Wide Association Studies (GWAS), 
-when running pink in PS3 and PS4 assignments.
+observed in the computing Genome-Wide Association Studies (GWAS) 
+by \cite{uffelmann2021genome}, 
+when running plink in PS3 and PS4 assignments.
 Recognizing the computation of GWAS is highly 
-parallelizable: effect size ($\beta$) and significance ($p$-value) of each 
-Single Nucleotide Polymorphism (SNP) does not depend on another's allele frequency.
-
-This project reimplement GWAS in a way that 
-leverages hardware parallel capabilities.
-And run time comparison is conducted against plink on two different platforms 
-to evaluate the performance.
+parallelizable: effect size ($\beta$) and significance ($p$-value) 
+of each Single Nucleotide Polymorphism (SNP) does not depend on 
+another's allele frequency,
+this project, \textbf{parallel GWAS}, aim to reimplement GWAS 
+leveraging hardware parallel capabilities.
+In addition, run time comparison is conducted 
+against plink on two different platforms 
+to evaluate performance.
 
 \section{Methods}
-describe implementation details of your tool, details of any benchmarking experiments, and where you obtained any datasets from. Also describe any other methods you used to help you. For any other tools you use, be sure to include the version number and any non-default parameters you used to run it.
-
-Matrix arithmetic are already well implemented in parallel by open-source libraries.
+Matrix arithmetic are well implemented in parallel by open-source libraries.
 The methodology is to convert GWAS regression problem into matrix arithmetic,
 and leverage existing libraries to accelerate computation.
+Specifically, parallel GWAS uses PyTorch library by \cite{paszke2019pytorch}.
 
 \subsection{preprocessing}
 Firstly, construct allele frequency matrix $X$ and phenotype matrix $Y$ from file using stream IO.
 $$
 \begin{matrix}X=&\left[ \begin{matrix}&\vdots &\\ \cdots &x_{i,j}\in \left\{ 0,1,2\right\}  &\cdots \\ &\vdots &\end{matrix} \right]  &\begin{gathered}\uparrow \\ i\in \text{sample} \\ \downarrow \end{gathered} \\ &&\\ &\leftarrow j\in \text{SNP} \rightarrow &\\ Y=&\left[ \begin{gathered}\vdots \\ y_{i}\\ \vdots \end{gathered} \right]  &\begin{gathered}\uparrow \\ i\in \text{sample} \\ \downarrow \end{gathered} \end{matrix}
 $$
-Then centering $X, Y$ at there means:
+Then, center $X, Y$ at their means:
 $$
 \begin{aligned}X&\leftarrow X-\text{mean} \left( X\right)  \\ Y&\leftarrow Y-\text{mean} \left( Y\right)  \end{aligned} 
 $$
 
 \subsection{effect size}
-The regression of effect size can be computed as:
+The effect size can be computed as:
 $$
 \hat{\beta} =\frac{X^{T}Y}{X^{T}X} 
 $$
@@ -69,46 +67,83 @@ SE\left( \hat{\beta } \right)  &=\text{var}_{(-2)} (Y-\hat{\beta} X)
 $$
 in which, $\text{var}_{(-2)}(\cdot)$ computes the variance with (n-2) correction.
 
-The statistics follows t-distribution with (number of samples -2) degree of freedom.
-Thus p-value can be computed as:
+This statistics follows t-distribution with (number of samples -2) degree of freedom.
+Thus $p$-value can be computed as:
 $$
 \begin{aligned}\text{stat} &\sim T_{df=\text{samples} -2}\\ p\text{-values} &=2\int^{-|\text{stat} |}_{-\infty } T_{df=\text{samples} -2}(t)dt\end{aligned}
 $$
+It is worth mentioning that there is no close formula for t distribution.
+The last step to compute $p$-value is performed in batch operations 
+using \texttt{scipy} library instead of parallel. 
+Later of this report will discuss the effect of different batch sizes.
 
 \section{Results}
-Results: summarize the results of benchmarking and analysis.
+The correctness of parallel GWAS result is verified by plink results.
 
-Run time comparison is conducted.
-
+Run time comparison is conducted on a local PC equipped with Nvidia GPU and datahub.
+Figure \ref*{fig:local_cpu} and \ref*{fig:local_gpu} shows the runtime 
+on local PC using different hardware.
+Figure \ref*{fig:datahub} shows the runtime on datahub. 
+Since there is no GPU resource available, only CPU version of parallel GWAS is used.
 
 \begin{figure}[h]
       \centering
-      \includegraphics[width=0.3\textwidth]{../datahub.png}
-      \caption{\label{fig:frog}This frog was uploaded via the file-tree menu.}
-\end{figure}
+      \begin{subfigure}[b]{0.32\textwidth}
+            \includegraphics[width=\textwidth]{../local_CPU.png}
+            \caption{CPU runtime}
+            \label{fig:local_cpu}
+      \end{subfigure}
+      \begin{subfigure}[b]{0.32\textwidth}
+            \includegraphics[width=\textwidth]{../local_GPU.png}
+            \caption{GPU runtime}
+            \label{fig:local_gpu}
+      \end{subfigure}
+      \begin{subfigure}[b]{0.32\textwidth}
+            \includegraphics[width=\textwidth]{../datahub.png}
+            \caption{\label{fig:datahub}runtime on datahub.}
+      \end{subfigure}
+      
+      \caption{\label{fig:runtime}Runtime comparison}
+  \end{figure}
 
 
 \section{Discussion}
-: outline any challenges you faced or potential future directions you would pursue if you kept working on this project.
+\begin{enumerate}
+\item In Figure \ref*{fig:runtime},
+the difference between dash and dot line is the time to compute CDF of T distribution.
+As the batch size increases, the time computing $p$-values decreases.
+But awkwardly, on datahub (shown in Figure \ref*{fig:datahub}) 
+the total runtime increased with larger batch sizes.
+Thus batch size is an important parameter for parallel GWAS depends on hardware.
 
-Future work: add support to regress out co-variables, such as 
+\item In Figure \ref*{fig:local_cpu} and \ref*{fig:local_gpu},
+runtime difference between CPU and GPU is negligible.
+Since GWAS has relatively simple matrix computation,
+benefit of having extra parallel cores on GPU 
+canceled out with the extra communication cost.
+
+\item Comparing Figure \ref*{fig:local_cpu} and \ref*{fig:datahub},
+plink performed dramatically , ~80x faster on local PC.
+Potential cause is \texttt{plink 1.9} might used some Intel specific libraries
+that are not fully supported by AMD.
+\texttt{pink 2.0}, currently still under development, promise to have versions specificity compiled and built for Intel and AMD, 
+which should help speed up calculation on DataHub machines in the future.
+
+\end{enumerate}
+
+Future work: 
+\begin{enumerate}
+\item Add support to regress out co-variables, such as 
 principle components of population, etc.
+      
+\item Investigate why total runtime increased on datahub with batch size $2^{10}$.
+\end{enumerate}
 
 \section{Code}
 \href{https://github.com/weixiao-zhan/CSE284_ParallelGWAS}
 {github repo: https://github.com/weixiao-zhan/CSE284\_ParallelGWAS}
 
-\section{References}
-
-
-
-\subsection{How to add Citations and a References List}
-
-You can simply upload a \verb|.bib| file containing your BibTeX entries, created with a tool such as JabRef. You can then cite entries from it, like this: \cite{greenwade93}. Just remember to specify a bibliography style, as well as the filename of the \verb|.bib|. You can find a \href{https://www.overleaf.com/help/97-how-to-include-a-bibliography-using-bibtex}{video tutorial here} to learn more about BibTeX.
-
-If you have an , you can also import your Mendeley or Zotero library directly as a \verb|.bib| file, via the upload menu in the file-tree.
-
-\bibliographystyle{alpha}
-\bibliography{sample}
+\bibliographystyle{unsrtnat}
+\bibliography{references}
 
 \end{document}
