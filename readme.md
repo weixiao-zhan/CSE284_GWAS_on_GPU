@@ -44,4 +44,4 @@ plink --linear \
 ```
 
 # Report
-[report.pdf](report.pdf)
+[report.pdf](report/report.pdf)
