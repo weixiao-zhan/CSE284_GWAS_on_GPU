@@ -1,4 +1,4 @@
-# Project: Accelerating GWAS with GPU Computing
+# Project: Accelerating GWAS with Parallel Computing
 Project Option: Option #1 - Implementation of GWAS and Application to Real Data
 Team Members: Weixiao Zhan (A59023453)
 

@@ -3,7 +3,7 @@ import torch
 import time
 
 if __name__ == "__main__":
-    pheno_path = '../data/ps3_gwas.phen'
+    pheno_path = "../data/ps3_gwas.phen"
     vcf_path = "../data/ps3_gwas.vcf.gz"
     out_path = ""
     
