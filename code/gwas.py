@@ -153,7 +153,7 @@ def gwas(pheno_pth, vcf_path, outfile,
         beta = (Xy / XX)
         beta_cpu = beta.cpu().detach().numpy().squeeze(axis=-1)
         if compute_pval:
-            stat = beta / torch.sqrt(torch.var(y -beta*X, dim=1, keepdim=True, correction=2) / XX) # ToDo: correction term?
+            stat = beta / torch.sqrt(torch.var(y -beta*X, dim=1, keepdim=True, correction=2) / XX)
             stat_cpu = stat.cpu().detach().numpy().squeeze(axis=-1)
             p = 2 *t.sf(np.abs(stat_cpu), df)
         else:
