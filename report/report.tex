@@ -19,19 +19,16 @@
 \section{Introduction}
 
 The motivation of the project is to address the inefficiencies,
-specifically the time-latency,
-observed in the computing Genome-Wide Association Studies (GWAS) 
-by \cite{uffelmann2021genome}, 
-when running plink in PS3 and PS4 assignments.
+specifically time-latency,
+observed in \texttt{plink} computing Genome-Wide Association Studies (GWAS, \cite{uffelmann2021genome}).
 Recognizing the computation of GWAS is highly 
 parallelizable: effect size ($\beta$) and significance ($p$-value) 
 of each Single Nucleotide Polymorphism (SNP) does not depend on 
 another's allele frequency,
 this project, \textbf{parallel GWAS}, aim to reimplement GWAS 
 leveraging hardware parallel capabilities.
-In addition, run time comparison is conducted 
-against plink on two different platforms 
-to evaluate performance.
+In addition, run time comparison between \texttt{plink} and parallel GWAS,
+is conducted on two different platforms to evaluate performance.
 
 \section{Methods}
 Matrix arithmetic are well implemented in parallel by open-source libraries.
@@ -46,7 +43,10 @@ $$
 $$
 Then, center $X, Y$ at their means:
 $$
-\begin{aligned}X&\leftarrow X-\text{mean} \left( X\right)  \\ Y&\leftarrow Y-\text{mean} \left( Y\right)  \end{aligned} 
+\begin{aligned}
+X_{:,j}&\leftarrow X_{:,j}-\text{mean} \left( X_{:,j}\right) & \forall j \\ 
+Y&\leftarrow Y-\text{mean} \left( Y\right)  
+\end{aligned} 
 $$
 
 \subsection{effect size}
@@ -78,7 +78,7 @@ using \texttt{scipy} library instead of parallel.
 Later of this report will discuss the effect of different batch sizes.
 
 \section{Results}
-The correctness of parallel GWAS result is verified by plink results.
+The correctness of parallel GWAS result is verified by \texttt{plink} results.
 
 Run time comparison is conducted on a local PC equipped with Nvidia GPU and datahub.
 Figure \ref*{fig:local_cpu} and \ref*{fig:local_gpu} shows the runtime 
@@ -112,9 +112,9 @@ Since there is no GPU resource available, only CPU version of parallel GWAS is u
 \item In Figure \ref*{fig:runtime},
 the difference between dash and dot line is the time to compute CDF of T distribution.
 As the batch size increases, the time computing $p$-values decreases.
-But awkwardly, on datahub (shown in Figure \ref*{fig:datahub}) 
-the total runtime increased with larger batch sizes.
-Thus batch size is an important parameter for parallel GWAS depends on hardware.
+However, large batch size may overwhelm the system memory, 
+for instance, in Figure\ref*{fig:datahub}, $2^6$ batch size produced peak performance.
+Thus batch size is an important parameter to tune on hardware.
 
 \item In Figure \ref*{fig:local_cpu} and \ref*{fig:local_gpu},
 runtime difference between CPU and GPU is negligible.
@@ -123,20 +123,19 @@ benefit of having extra parallel cores on GPU
 canceled out with the extra communication cost.
 
 \item Comparing Figure \ref*{fig:local_cpu} and \ref*{fig:datahub},
-plink performed dramatically , ~80x faster on local PC.
+\texttt{plink} performed dramatically different: $80\times$ faster on local PC.
 Potential cause is \texttt{plink 1.9} might used some Intel specific libraries
 that are not fully supported by AMD.
-\texttt{pink 2.0}, currently still under development, promise to have versions specificity compiled and built for Intel and AMD, 
-which should help speed up calculation on DataHub machines in the future.
+Meanwhile, \texttt{plink 2.0}, currently still under development, 
+promise to have versions specificity compiled and built AMD, 
+which should help speed up calculation on datahub machines in the future.
 
 \end{enumerate}
 
 Future work: 
 \begin{enumerate}
-\item Add support to regress out co-variables, such as 
+\item Add support to handle co-variables, such as 
 principle components of population, etc.
-      
-\item Investigate why total runtime increased on datahub with batch size $2^{10}$.
 \end{enumerate}
 
 \section{Code}
